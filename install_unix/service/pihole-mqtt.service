@@ -1,0 +1,15 @@
+[Unit]
+Description=PiHole MQTT
+Wants=network.target
+After=multi-user.target
+Conflicts=getty@tty1.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/bin/pihole-MQTT
+StandardInput=tty-force
+StandardOutput=tty
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
