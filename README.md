@@ -53,3 +53,5 @@ cd ./install_unix
 chmod +x install.sh
 ./install.sh
 ```
+
+_NOTE:_ Your system may require the installation of packages with your package manager. Check your system. On Ubuntu, I had to install some requirements with apt.
