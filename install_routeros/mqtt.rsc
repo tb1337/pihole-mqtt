@@ -11,9 +11,9 @@
 
     :if ($type = "CNAME") do={
         :local cname [/ip dns static get value-name=cname $dnsentry]
-        :set jsonCNAME "$jsonCNAME\n,{\"match\":\"$name\",\"value\":\"$cname\"}"
+        :set jsonCNAME "$jsonCNAME\n,[\"$name\",\"$cname\"]"
     } else={
-        :set jsonDNS "$jsonDNS\n,{\"match\":\"$addr\",\"value\":\"$name\"}"
+        :set jsonDNS "$jsonDNS\n,[\"$addr\",\"$name\"]"
     }
 }
 
