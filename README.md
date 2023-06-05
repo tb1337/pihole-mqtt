@@ -8,11 +8,17 @@ Currently it is designed to receive data over MQTT by a MikroTik RouterOS device
 
 PiHole is my independent DNS resolver at home. But RouterOS takes care of DHCP, hostnames and dynamically creates DNS entries. I want to share that with my PiHole DNS, so it gets updated with fresh local DNS data whenever RouterOS changes something.
 
-## Information
+## Configuration
 
-Its a private script. Currently, I don't use a configuration environment and so commited my local credentials. Blame me, but its uncritical. You cannot access the mentioned host, you cannot access my MQTT broker, its just a random password, it is useless for you.
+### After installation
 
-I will update that in the future, to make configuration by environment vars.
+Execute command:
+
+```
+nano /etc/pihole-MQTT/.env
+```
+
+There you can set all configuration variables. Finally, Ctrl+O Ctrl+X and restart the service.
 
 ## Installation
 
