@@ -8,12 +8,14 @@
     :local name [/ip dns static get value-name=name $dnsentry]
     :local type [/ip dns static get value-name=type $dnsentry]
     :local addr [/ip dns static get value-name=address $dnsentry]
-
-    :if ($type = "CNAME") do={
-        :local cname [/ip dns static get value-name=cname $dnsentry]
-        :set jsonCNAME "$jsonCNAME\n,[\"$name\",\"$cname\"]"
-    } else={
-        :set jsonDNS "$jsonDNS\n,[\"$addr\",\"$name\"]"
+    
+    :if ([/ip dns static get value-name=comment $dnsentry] != "#DHCP") do={
+        :if ($type = "CNAME") do={
+            :local cname [/ip dns static get value-name=cname $dnsentry]
+            :set jsonCNAME "$jsonCNAME\n,[\"$name\",\"$cname\"]"
+        } else={
+            :set jsonDNS "$jsonDNS\n,[\"$addr\",\"$name\"]"
+        }
     }
 }
 
