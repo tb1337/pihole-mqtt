@@ -1,3 +1,5 @@
 asyncio>=3.4.3
 asyncio_mqtt>=0.16.1
 aiofiles>=23.1.0
+python-dotenv>=1.0.0
+pathlib>=1.0.1

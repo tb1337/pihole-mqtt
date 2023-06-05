@@ -7,32 +7,40 @@ import os
 import json
 import re
 
+from dotenv import load_dotenv
+from pathlib import Path
+
 import aiofiles
 import asyncio
 import asyncio_mqtt as aiomqtt
 
+load_dotenv(dotenv_path=Path('/etc/pihole-MQTT/.env'))
 
-MQTT_HOST = '192.168.42.23'
-MQTT_PORT = 1883
-MQTT_USER = 'pihole'
-MQTT_PASS = 'QfMTx10LHqX9Nt'
+MQTT_HOST = os.environ.get('MQTT_HOST')
+MQTT_PORT = os.environ.get('MQTT_PORT')
+MQTT_USER = os.environ.get('MQTT_USER')
+MQTT_PASS = os.environ.get('MQTT_PASS')
 
-MQTT_TOPIC_WILL = 'mikrotik/pihole-mqtt'
-MQTT_TOPIC_DNSCONFIG = 'mikrotik/dns-config'
+MQTT_TOPIC_WILL = os.environ.get('MQTT_TOPIC_WILL')
+MQTT_TOPIC_DNSCONFIG = os.environ.get('MQTT_TOPIC_DNSCONFIG')
 
-MQTT_RECONNECT_INTERVAL = 5
+MQTT_RECONNECT_INTERVAL = os.environ.get('MQTT_RECONNECT_INTERVAL') or 5
 
 
 class DnsEntityConfig():
+    Members = {}
+
     def __init__(self, name, **kwargs):
         self.name = name
         self.configfile = kwargs['configfile']
         self.searchpattern = kwargs['searchpattern']
         self.persistpath = kwargs['persistpath']
-        self.picmd_adddns = kwargs['picmd_adddns']
-        self.picmd_deldns = kwargs['picmd_deldns']
+        self.add_command = kwargs['add_command']
+        self.del_command = kwargs['del_command']
         self.source_data = None
         self.dest_data = None
+
+        DnsEntityConfig.Members.update({self.name: self})
 
     def __str__(self):
         return self.name
@@ -71,31 +79,34 @@ class DnsEntityConfig():
 
 
 DNS = DnsEntityConfig(
-    "DNS",
+    "dns",
     configfile='/etc/pihole/custom.list',
     searchpattern='\A([\w.-]+) ([\w.-]+)',
     persistpath='/etc/pihole-MQTT/dns.list',
-    picmd_adddns='-a addcustomdns %s %s false',
-    picmd_deldns='-a removecustomdns %s %s false',
+    add_command='-a addcustomdns %s %s false',
+    del_command='-a removecustomdns %s %s false',
 )
 CNAME = DnsEntityConfig(
-    "CNAME",
+    "cname",
     configfile='/etc/dnsmasq.d/05-pihole-custom-cname.conf',
     searchpattern='\Acname=([\w.-]+),([\w.-]+)',
     persistpath='/etc/pihole-MQTT/cname.list',
-    picmd_adddns='-a addcustomcname %s %s false',
-    picmd_deldns='-a removecustomcname %s %s false',
+    add_command='-a addcustomcname %s %s false',
+    del_command='-a removecustomcname %s %s false',
 )
 
 
 async def on_topic_dnsconfig(payload: str):
-    DNS.source_data = payload['dns']
-    CNAME.source_data = payload['cname']
+    for name, inst in DnsEntityConfig.Members.items():
+        try:
+            inst.source_data = payload[name]
+        except:
+            pass
 
     data_changed = False
     num_entries = 0
 
-    for e in [DNS, CNAME]:
+    for e in DnsEntityConfig.Members.values():
         await e.persist_data()
         await e.parse_configfile()
 
@@ -103,12 +114,12 @@ async def on_topic_dnsconfig(payload: str):
 
         # Add actions
         for s in tasks['add']:
-            cmd = e.picmd_adddns % (s[0], s[1])
+            cmd = e.add_command % (s[0], s[1])
             await pihole_command(cmd, "  [ADD COMMAND] " + cmd)
 
         # Remove actions
         for s in tasks['del']:
-            cmd = e.picmd_deldns % (s[0], s[1])
+            cmd = e.del_command % (s[0], s[1])
             await pihole_command(cmd, "  [DEL COMMAND] " + cmd)
 
         data_changed = data_changed or len(
@@ -149,6 +160,10 @@ async def main():
         )
     }
 
+    callbacks = {
+        MQTT_TOPIC_DNSCONFIG: on_topic_dnsconfig
+    }
+
     while True:
         try:
             async with aiomqtt.Client(**configuration) as client:
@@ -156,15 +171,15 @@ async def main():
                 await client.publish(MQTT_TOPIC_WILL, payload=True)
 
                 async with client.messages() as messages:
-                    await client.subscribe(MQTT_TOPIC_DNSCONFIG)
+                    [await client.subscribe(t) for t in callbacks]
 
                     async for message in messages:
                         payload = json.loads(message.payload.decode())
 
-                        if message.topic.matches(MQTT_TOPIC_DNSCONFIG):
-                            await on_topic_dnsconfig(payload)
-                        else:
-                            pass
+                        for topic, cb in callbacks.items():
+                            if message.topic.matches(topic):
+                                await cb(payload)
+
         except aiomqtt.MqttError as error:
             await client.publish(MQTT_TOPIC_WILL, payload=False)
             print(
