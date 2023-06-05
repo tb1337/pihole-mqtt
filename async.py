@@ -200,8 +200,13 @@ if sys.platform.lower() == "win32" or os.name.lower() == "nt":
 
 
 loop = asyncio.get_event_loop()
+
+
+
 try:
     loop.run_until_complete(main())
+except asyncio.CancelledError:
+    pass
 finally:
     loop.run_until_complete(loop.shutdown_asyncgens())
     loop.close()
